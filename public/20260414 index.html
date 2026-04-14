@@ -219,7 +219,7 @@ let isAdmin      = false; // promovido por código
 let replyingTo   = null;
 let panelOpen    = true;
 let intentionalLeave = false;
-let audioCtx = null;  // Para mejorar el pitido de los mensajes
+
 /* ── FIX #2: formatear hora con la zona horaria del CLIENTE ── */
 function fmtTime(ts) {
   return new Date(ts).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -248,7 +248,6 @@ function joinChat() {
   if (!icon)     return alert('Por favor selecciona un avatar.');
   showScreen('chatScreen');
   $('myBadge').textContent = icon + ' ' + nickname;
-  audioCtx = new AudioContext(); // para mejorar el pitido
   connectWS();
 }
 
@@ -369,12 +368,7 @@ function addMessage(msg) {
   box.appendChild(d);
   box.scrollTop = box.scrollHeight;
   // Pitido solo si el mensaje es de otro usuario (no el propio)
-  // if (!isMe) beep();
-  if (!isMe && audioCtx) {  
-  // audioCtx ya existe y está en estado "running"  
-  const osc = audioCtx.createOscillator();  
-  // ...  
-}
+  if (!isMe) beep();
 }
 
 function scrollToMsg(id) {
