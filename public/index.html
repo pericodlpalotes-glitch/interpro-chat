@@ -169,6 +169,7 @@ header h2{font-size:1rem;color:var(--accent);flex:1;white-space:nowrap;overflow:
     <span id="myBadge"></span>
     <button class="hdr-btn" id="usersToggle" onclick="togglePanel()">👥 <span id="userCount">0</span></button>
     <button class="hdr-btn" id="leaveBtn" onclick="leaveChat()">🚪 Salir</button>
+    <button class="hdr-btn" id="soundBtn" onclick="toggleSound()" title="Activar/desactivar sonido">🔔</button>
   </header>
   <div id="statusBar">Conectando…</div>
 
@@ -366,6 +367,8 @@ function addMessage(msg) {
 
   box.appendChild(d);
   box.scrollTop = box.scrollHeight;
+  // Pitido solo si el mensaje es de otro usuario (no el propio)
+  if (!isMe) beep();
 }
 
 function scrollToMsg(id) {
@@ -491,6 +494,32 @@ document.addEventListener('keydown', e => {
   if ($('loginScreen').classList.contains('active')) joinChat();
   else sendMessage();
 });
+
+/* ── SONIDO ── */
+let soundEnabled = true;
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  $('soundBtn').textContent = soundEnabled ? '🔔' : '🔕';
+  $('soundBtn').title = soundEnabled ? 'Desactivar sonido' : 'Activar sonido';
+}
+
+function beep() {
+  if (!soundEnabled) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);          // La5
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.25);
+  } catch (e) { /* navegador sin AudioContext */ }
+}
 </script>
 </body>
 </html>

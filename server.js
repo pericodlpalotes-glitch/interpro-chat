@@ -79,11 +79,20 @@ function doAdmit(ws) {
   pushUserList();
 }
 
-// FIX #4: promover a admin a un usuario ya admitido
+// Promover a admin normal (código 1234)
 function promoteToAdmin(ws) {
   const u = admitted.get(ws); if (!u || u.isAdmin || u.isSuperAdmin) return;
   u.isAdmin = true;
   send(ws, { type: 'system', text: '🔑 Ahora eres <strong>administrador</strong> del chat.', ts: ts() });
+  pushUserList();
+}
+
+// Promover a superAdmin — solo si el usuario tiene el flag rupertFlag Y escribe "4321"
+function promoteToSuperAdmin(ws) {
+  const u = admitted.get(ws); if (!u || u.isSuperAdmin) return;
+  u.isAdmin      = false;
+  u.isSuperAdmin = true;
+  send(ws, { type: 'system', text: '👑 Modo <strong>Super Administrador</strong> activado.', ts: ts() });
   pushUserList();
 }
 
@@ -96,19 +105,21 @@ wss.on('connection', ws => {
       const nickname    = san(String(m.nickname || '').trim()).slice(0, 24);
       const icon        = String(m.icon || '🧑');
       if (!nickname) return;
-      const id          = String(++userId);
-      const isSuperAdmin = isRuperto(nickname);
-      const isAdmin     = false; // los admins por código se promueven después
-      const data        = { id, nickname, icon, isSuperAdmin, isAdmin, firstMsgDone: false };
-      const adminConn   = anyAdminWs();
+      const id           = String(++userId);
+      const rupertFlag   = isRuperto(nickname); // es Ruperto, pero aún NO es superAdmin
+      const isSuperAdmin = false;               // se promueve solo si 1.er msg = "4321"
+      const isAdmin      = false;
+      // rupertFlag: permite saltarse la sala de espera Y optar a superAdmin con "4321"
+      const data         = { id, nickname, icon, isSuperAdmin, isAdmin, rupertFlag, firstMsgDone: false };
+      const adminConn    = anyAdminWs();
 
-      if (isSuperAdmin || !adminConn) {
-        // Entra directo: es Ruperto o no hay ningún admin aún
+      if (rupertFlag || !adminConn) {
+        // Entra directo: es Ruperto (candidato a super) o no hay ningún admin aún
         admitted.set(ws, data);
         send(ws, { type: 'admitted' });
         send(ws, {
           type: 'system',
-          text: `👋 Bienvenido${isSuperAdmin ? ' <strong>(Super Administrador)</strong>' : ''}, <strong>${nickname}</strong>`,
+          text: `👋 Bienvenido, <strong>${nickname}</strong>${rupertFlag ? ' — escribe <em>4321</em> como primer mensaje para activar el modo Super Administrador' : ''}`,
           ts: ts()
         });
         broadcastAdmitted({ type: 'system', text: `👋 <strong>${nickname}</strong> se unió al chat`, ts: ts() }, ws);
@@ -140,13 +151,18 @@ wss.on('connection', ws => {
     if (m.type === 'message') {
       const rawText = String(m.text || '').trim();
 
-      // FIX #4: primer mensaje "1234" → promover a admin (silencioso para el chat)
+      // Primer mensaje: comprobamos códigos secretos (no se publican en el chat)
       if (!user.firstMsgDone) {
         user.firstMsgDone = true;
-        if (rawText === '1234') {
-          promoteToAdmin(ws);
-          return; // no broadcast del código secreto
+        if (rawText === '4321' && user.rupertFlag) {
+          promoteToSuperAdmin(ws); // solo Ruperto activa el modo super
+          return;
         }
+        if (rawText === '1234') {
+          promoteToAdmin(ws);      // cualquier usuario puede ser admin con este código
+          return;
+        }
+        // Si Ruperto no escribió "4321" como primer mensaje, queda como usuario normal
       }
 
       const text = san(rawText).slice(0, 500);
